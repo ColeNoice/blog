@@ -1,0 +1,135 @@
+name: 同步笔记文章
+
+on:
+  repository_dispatch:
+    types: [sync-articles]
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 强制同步所有文章
+        required: false
+        default: 'false'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出博客仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: 检出笔记仓库
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/note
+          token: ${{ secrets.PAT_TOKEN }}
+          path: note-repo
+          fetch-depth: 0
+
+      - name: 同步文章
+        run: |
+          #!/bin/bash
+          set -e
+
+          # 配置
+          NOTE_REPO="./note-repo"
+          BLOG_CONTENT_DIR="./content/posts"
+          SYNCED_COUNT=0
+          SKIPPED_COUNT=0
+
+          # 确保博客内容目录存在
+          mkdir -p "$BLOG_CONTENT_DIR"
+
+          echo "🔍 开始扫描笔记仓库中的 Markdown 文件..."
+
+          # 查找所有 .md 文件（排除隐藏目录）
+          while IFS= read -r -d '' file; do
+            echo "检查文件: $file"
+
+            # 提取文件的 frontmatter
+            # 读取文件直到找到第二个 --- 分隔符
+            in_frontmatter=false
+            frontmatter_content=""
+            content_lines=""
+            line_num=0
+
+            while IFS= read -r line; do
+              line_num=$((line_num + 1))
+
+              # 检测 frontmatter 开始
+              if [ $line_num -eq 1 ] && [ "$line" = "---" ]; then
+                in_frontmatter=true
+                continue
+              fi
+
+              # 检测 frontmatter 结束
+              if [ "$in_frontmatter" = true ] && [ "$line" = "---" ]; then
+                in_frontmatter=false
+                continue
+              fi
+
+              # 收集 frontmatter 内容
+              if [ "$in_frontmatter" = true ]; then
+                frontmatter_content="${frontmatter_content}${line}"$'\n'
+              else
+                content_lines="${content_lines}${line}"$'\n'
+              fi
+            done < "$file"
+
+            # 检查是否有 share: true
+            if echo "$frontmatter_content" | grep -q "share:\s*true"; then
+              echo "  ✓ 发现需要分享的文章"
+
+              # 计算相对路径
+              relative_path="${file#$NOTE_REPO/}"
+              target_path="$BLOG_CONTENT_DIR/$relative_path"
+              target_dir=$(dirname "$target_path")
+
+              # 确保目标目录存在
+              mkdir -p "$target_dir"
+
+              # 复制文件
+              cp "$file" "$target_path"
+
+              echo "  → 同步到: $target_path"
+              SYNCED_COUNT=$((SYNCED_COUNT + 1))
+            else
+              echo "  ⊘ 跳过（share != true）"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+            fi
+
+          done < <(find "$NOTE_REPO" -type f -name "*.md" ! -path "*/.*" -print0)
+
+          echo ""
+          echo "📊 同步统计:"
+          echo "  • 同步文章: $SYNCED_COUNT"
+          echo "  • 跳过文章: $SKIPPED_COUNT"
+
+      - name: 提交更改
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 添加所有更改
+          git add content/posts/
+
+          # 检查是否有更改
+          if git diff --staged --quiet; then
+            echo "📭 没有文章需要同步"
+            exit 0
+          fi
+
+          # 提交更改
+          git commit -m "chore: 从笔记仓库同步文章 [skip ci]"
+          git push
+
+          echo "✅ 文章同步完成并已推送"
+
+      - name: 同步结果通知
+        if: always()
+        run: |
+          echo "📋 同步任务完成"
+          echo "   工作流状态: ${{ job.status }}"

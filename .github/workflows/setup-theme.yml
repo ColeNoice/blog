@@ -1,0 +1,72 @@
+name: 设置 Hugo 主题
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# 授予 workflow 必要的权限
+permissions:
+  contents: write
+
+jobs:
+  setup-theme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出博客仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # 优先使用 PAT_TOKEN，如果不存在则使用默认的 GITHUB_TOKEN
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: 检查主题是否已存在
+        id: check-theme
+        run: |
+          if [ -d "themes/PaperMod" ] && [ -n "$(ls -A themes/PaperMod 2>/dev/null)" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✓ 主题已存在"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⊘ 主题不存在，需要下载"
+          fi
+
+      - name: 下载 PaperMod 主题
+        if: steps.check-theme.outputs.exists == 'false'
+        run: |
+          echo "📥 开始下载 PaperMod 主题..."
+
+          # 确保 themes 目录存在
+          mkdir -p themes
+
+          # 克隆主题（浅克隆以减少下载时间）
+          git clone --depth 1 https://github.com/adityatelange/hugo-PaperMod.git themes/PaperMod
+
+          # 删除 .git 目录
+          rm -rf themes/PaperMod/.git
+
+          echo "✅ 主题下载完成"
+
+      - name: 提交主题文件
+        if: steps.check-theme.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add themes/PaperMod/
+
+          if git diff --staged --quiet; then
+            echo "📭 没有需要提交的更改"
+            exit 0
+          fi
+
+          git commit -m "chore: 添加 PaperMod 主题 [skip ci]"
+          git push
+
+          echo "✅ 主题已提交到仓库"
+
+      - name: 完成
+        run: |
+          echo "🎉 主题设置完成"
