@@ -1,3 +1,74 @@
 baseURL: https://example.org/
-languageCode: en-us
-title: My New Hugo Site
+languageCode: zh-cn
+title: 我的博客
+theme: PaperMod
+
+params:
+  env: production
+  title: 我的博客
+  description: "分享技术与生活"
+  author: Me
+  
+  # 主页配置
+  homeInfoParams:
+    Title: "欢迎来到我的博客 👋"
+    Content: 分享技术与生活的点滴
+
+  # 社交图标
+  socialIcons:
+    - name: github
+      url: "https://github.com/"
+    
+  # 显示阅读时间
+  ShowReadingTime: true
+  # 显示分享按钮
+  ShowShareButtons: true
+  # 显示文章导航
+  ShowPostNavLinks: true
+  # 显示面包屑导航
+  ShowBreadCrumbs: true
+  # 显示代码复制按钮
+  ShowCodeCopyButtons: true
+  # 显示RSS图标
+  ShowRssButtonInSectionTermList: true
+  
+  # 编辑文章链接
+  editPost:
+    URL: "https://github.com/yourusername/blog/tree/main/content"
+    Text: "建议修改"
+    appendFilePath: true
+
+menu:
+  main:
+    - identifier: posts
+      name: 文章
+      url: /posts/
+      weight: 10
+    - identifier: tags
+      name: 标签
+      url: /tags/
+      weight: 20
+    - identifier: categories
+      name: 分类
+      url: /categories/
+      weight: 30
+    - identifier: archives
+      name: 归档
+      url: /archives/
+      weight: 40
+    - identifier: search
+      name: 搜索
+      url: /search/
+      weight: 50
+
+# 输出格式
+outputs:
+  home:
+    - HTML
+    - RSS
+    - JSON
+
+# 分类法
+taxonomies:
+  category: categories
+  tag: tags
