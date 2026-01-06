@@ -80,7 +80,7 @@ jobs:
             done < "$file"
 
             # 检查是否有 share: true
-            if echo "$frontmatter_content" | grep -q "share:\s*true"; then
+             if echo "$frontmatter_content" | grep -qE "share:[[:space:]]*true"; then
               echo "  ✓ 发现需要分享的文章"
 
               # 计算相对路径
